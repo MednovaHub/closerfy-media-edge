@@ -67,6 +67,34 @@ services:
     environment:
       - MEDIA_HOSTNAME=${MEDIA_HOSTNAME}
 
+  # ─── Asterisk (PJSIP WebRTC) ───────────────────────────────────────
+  # Substituirá Janus na Fase 1 da migração WhatsApp Calling. Por enquanto
+  # roda em paralelo. Gera SDP DTLS-SRTP nativo (validado em spike 2026-05-06).
+  # Backend conecta via ARI (REST + WebSocket events) em /ari.
+  # Browser conecta via SIP.js em /ws (WSS terminado pelo Caddy).
+  asterisk:
+    image: andrius/asterisk:21
+    container_name: closerfy-asterisk
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./asterisk-config/asterisk.conf:/etc/asterisk/asterisk.conf:ro
+      - ./asterisk-config/modules.conf:/etc/asterisk/modules.conf:ro
+      - ./asterisk-config/logger.conf:/etc/asterisk/logger.conf:ro
+      - ./asterisk-config/http.conf:/etc/asterisk/http.conf:ro
+      - ./asterisk-config/ari.conf:/etc/asterisk/ari.conf:ro
+      - ./asterisk-config/rtp.conf:/etc/asterisk/rtp.conf:ro
+      - ./asterisk-config/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./asterisk-config/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./asterisk-keys:/etc/asterisk/keys:ro
+      - asterisk_recordings:/var/spool/asterisk/monitor
+    healthcheck:
+      test: ["CMD-SHELL", "asterisk -rx 'core show version' >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
   # ─── Recorder Watcher ──────────────────────────────────────────────
   # Vigia janus_recordings/, detecta .mjr finalizado, converte pra .ogg
   # e POSTa pro backend Closerfy em api.closerfy.ai.
@@ -86,6 +114,8 @@ services:
 volumes:
   janus_recordings:
     name: closerfy_janus_recordings
+  asterisk_recordings:
+    name: closerfy_asterisk_recordings
   caddy_data:
     name: closerfy_caddy_data
   caddy_config:

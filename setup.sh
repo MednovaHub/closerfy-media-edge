@@ -57,6 +57,7 @@ ufw allow 3478/tcp comment 'STUN/TURN TCP' >/dev/null
 ufw allow 3478/udp comment 'STUN/TURN UDP' >/dev/null
 ufw allow 5349/tcp comment 'TURN TLS' >/dev/null
 ufw allow 20000:40000/udp comment 'Janus RTP' >/dev/null
+ufw allow 10000:20000/udp comment 'Asterisk RTP' >/dev/null
 ufw allow 49152:65535/udp comment 'Coturn relay' >/dev/null
 ufw --force enable >/dev/null
 ok "Firewall ativo (9 regras de entrada)"
@@ -111,6 +112,8 @@ COTURN_SHARED_SECRET=$(openssl rand -hex 32)
 CLOSERFY_BACKEND_URL=$CLOSERFY_BACKEND_URL
 CLOSERFY_INGEST_TOKEN=$(openssl rand -hex 32)
 PUBLIC_IP=$PUBLIC_IP
+ASTERISK_ARI_USER=closerfy
+ASTERISK_ARI_PASSWORD=$(openssl rand -hex 32)
 EOF
   chmod 600 .env
   ok "Secrets gerados em .env (chmod 600, PUBLIC_IP=$PUBLIC_IP)"
@@ -119,9 +122,18 @@ fi
 # Carrega vars
 set -a; source .env; set +a
 
+# Idempotência: adiciona vars Asterisk ao .env existente se faltarem
+if ! grep -q '^ASTERISK_ARI_USER=' .env; then
+  echo "ASTERISK_ARI_USER=closerfy" >> .env
+  echo "ASTERISK_ARI_PASSWORD=$(openssl rand -hex 32)" >> .env
+  set -a; source .env; set +a
+  ok "Adicionados secrets Asterisk ao .env existente"
+fi
+
 [[ -n "${PUBLIC_IP:-}" ]] || fail "PUBLIC_IP vazio em .env — edita manualmente e rode de novo"
 [[ "${PUBLIC_IP}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "PUBLIC_IP em .env não é IPv4 válido: $PUBLIC_IP"
 [[ -n "${JANUS_ADMIN_SECRET:-}" ]] || fail "JANUS_ADMIN_SECRET vazio em .env"
+[[ -n "${ASTERISK_ARI_PASSWORD:-}" ]] || fail "ASTERISK_ARI_PASSWORD vazio em .env"
 
 ok "PUBLIC_IP IPv4: $PUBLIC_IP"
 
@@ -132,8 +144,12 @@ sed -i "s|REPLACE_WITH_COTURN_SHARED_SECRET|$COTURN_SHARED_SECRET|g" janus-confi
 sed -i "s|REPLACE_WITH_PUBLIC_IP|$PUBLIC_IP|g" janus-config/janus.jcfg
 sed -i "s|<PUBLIC_IP>|$PUBLIC_IP|g" coturn.conf
 
+# Asterisk
+sed -i "s|REPLACE_WITH_ASTERISK_ARI_PASSWORD|$ASTERISK_ARI_PASSWORD|g" asterisk-config/ari.conf
+sed -i "s|REPLACE_WITH_PUBLIC_IP|$PUBLIC_IP|g" asterisk-config/pjsip.conf
+
 # Validação: não pode sobrar placeholder
-if grep -qE "REPLACE_WITH_|<PUBLIC_IP>" janus-config/janus.jcfg coturn.conf 2>/dev/null; then
+if grep -qE "REPLACE_WITH_|<PUBLIC_IP>" janus-config/janus.jcfg coturn.conf asterisk-config/*.conf 2>/dev/null; then
   fail "Sobrou placeholder não substituído nos configs"
 fi
 ok "Configs com secrets aplicados"
@@ -147,9 +163,27 @@ if [[ ! -f janus-config/janus.pem ]]; then
     -days 3650 -nodes \
     -subj "/CN=$MEDIA_HOSTNAME" >/dev/null 2>&1
   chmod 600 janus-config/janus.key
-  ok "Cert auto-assinado gerado (válido 10 anos)"
+  ok "Cert Janus auto-assinado gerado (válido 10 anos)"
 else
-  ok "Cert já existe (preservado)"
+  ok "Cert Janus já existe (preservado)"
+fi
+
+# ─── 6b. DTLS cert pro Asterisk (auto-assinado) ───────────────────────
+# Meta valida fingerprint (não CA), então self-signed serve. Validado em
+# spike 2026-05-06.
+step "Gerando cert DTLS pro Asterisk"
+mkdir -p asterisk-keys
+if [[ ! -f asterisk-keys/asterisk.crt ]]; then
+  openssl req -x509 -newkey rsa:2048 \
+    -keyout asterisk-keys/asterisk.key \
+    -out asterisk-keys/asterisk.crt \
+    -days 3650 -nodes \
+    -subj "/CN=$MEDIA_HOSTNAME" >/dev/null 2>&1
+  chmod 600 asterisk-keys/asterisk.key
+  chmod 644 asterisk-keys/asterisk.crt
+  ok "Cert Asterisk auto-assinado gerado (válido 10 anos)"
+else
+  ok "Cert Asterisk já existe (preservado)"
 fi
 
 # ─── 7. Subir o stack ─────────────────────────────────────────────────
@@ -197,15 +231,22 @@ echo ""
 echo -e "${BOLD}URLs públicas:${NC}"
 echo "  Health:     https://$MEDIA_HOSTNAME/health"
 echo "  Janus info: https://$MEDIA_HOSTNAME/janus/info"
+echo "  Asterisk ARI: https://$MEDIA_HOSTNAME/ari/asterisk/info (Basic Auth)"
 echo ""
-echo -e "${BOLD}${YELLOW}ANOTA estes 2 secrets — ponha no Portainer do backend Closerfy:${NC}"
+echo -e "${BOLD}${YELLOW}ANOTA estes secrets — ponha no Portainer do backend Closerfy:${NC}"
 echo "  JANUS_ADMIN_SECRET=$JANUS_ADMIN_SECRET"
 echo "  CLOSERFY_INGEST_TOKEN=$CLOSERFY_INGEST_TOKEN"
+echo "  ASTERISK_ARI_USER=$ASTERISK_ARI_USER"
+echo "  ASTERISK_ARI_PASSWORD=$ASTERISK_ARI_PASSWORD"
 echo ""
 echo -e "${BOLD}Próximos passos no Closerfy backend (Portainer → env do serviço):${NC}"
 echo "  JANUS_ADMIN_URL=https://$MEDIA_HOSTNAME/admin"
 echo "  JANUS_ADMIN_SECRET=<o valor acima>"
 echo "  CLOSERFY_INGEST_TOKEN=<o valor acima>"
+echo "  ASTERISK_ARI_URL=https://$MEDIA_HOSTNAME/ari"
+echo "  ASTERISK_ARI_USER=closerfy"
+echo "  ASTERISK_ARI_PASSWORD=<o valor acima>"
+echo "  ASTERISK_WS_URL=wss://$MEDIA_HOSTNAME/ws"
 echo ""
 echo "Depois redeploy o backend e teste uma call em /dashboard/whatsapp"
 echo ""

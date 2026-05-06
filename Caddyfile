@@ -17,6 +17,18 @@
 		reverse_proxy 127.0.0.1:7088
 	}
 
+	# Asterisk ARI — REST + WebSocket events
+	# Backend Closerfy autentica via Basic Auth (closerfy:ASTERISK_ARI_PASSWORD).
+	handle /ari* {
+		reverse_proxy 127.0.0.1:8090
+	}
+
+	# Asterisk PJSIP WebSocket transport (browser SIP.js / JsSIP)
+	# Path /ws é fixo no Asterisk (não customizável via prefix).
+	handle /ws {
+		reverse_proxy 127.0.0.1:8090
+	}
+
 	# Health endpoint pro UptimeRobot ou similar
 	handle /health {
 		respond "ok" 200
