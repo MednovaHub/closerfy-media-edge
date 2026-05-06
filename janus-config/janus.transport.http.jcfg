@@ -1,0 +1,29 @@
+general: {
+	json = "indented"
+	base_path = "/janus"
+	threads = "unlimited"
+	http = true
+	port = 8088
+	# HTTPS é terminado pelo Caddy reverse proxy — Janus serve HTTP plain
+	# na rede interna do compose.
+	https = false
+}
+
+admin: {
+	admin_base_path = "/admin"
+	admin_threads = "unlimited"
+	admin_http = true
+	admin_port = 7088
+	admin_https = false
+
+	# IPs permitidos pra fazer admin calls (Caddy + recorder-watcher na mesma VPS).
+	# Em network_mode: host, todos os containers acessam via 127.0.0.1.
+	admin_acl = "127.0.0.1,::1"
+}
+
+cors: {
+	allow_origin = "*"
+}
+
+certificates: {
+}

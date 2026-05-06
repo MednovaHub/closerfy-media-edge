@@ -1,0 +1,19 @@
+{
+  "name": "closerfy-recorder-watcher",
+  "version": "0.1.0",
+  "description": "Watches Janus recordings dir, converts .mjr to .ogg, posts to Closerfy backend",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

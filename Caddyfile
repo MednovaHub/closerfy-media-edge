@@ -1,0 +1,41 @@
+# Closerfy Media Edge — Caddy reverse proxy
+# Termina TLS (Let's Encrypt automático) e proxa pra Janus internamente.
+# {$MEDIA_HOSTNAME} vem da env (ex: media.closerfy.ai)
+
+{$MEDIA_HOSTNAME} {
+	# Janus REST API (sessions, plugins, ICE handling)
+	# Backend Closerfy bate aqui pra createSession/destroySession.
+	handle_path /janus* {
+		reverse_proxy http://127.0.0.1:8088
+	}
+
+	# Admin API (stop recording, get info)
+	# IMPORTANTE: protegido por admin_secret no janus.jcfg.
+	# Se quiser camada extra, adicionar basicauth aqui.
+	handle_path /admin* {
+		reverse_proxy http://127.0.0.1:7088
+	}
+
+	# Health endpoint pro UptimeRobot ou similar
+	handle /health {
+		respond "ok" 200
+	}
+
+	# Default: rejeita
+	handle {
+		respond "Not Found" 404
+	}
+
+	# Logs estruturados
+	log {
+		output stdout
+		format json
+	}
+
+	# Headers de segurança
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+}

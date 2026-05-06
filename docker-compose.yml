@@ -1,0 +1,89 @@
+# Closerfy Media Edge — Janus + Coturn + Caddy + recorder-watcher
+# Roda em VPS dedicada (média Hetzner CCX13 ~R$75/mês), DNS: media.closerfy.ai
+#
+# Deploy:
+#   1. Copia .env.example pra .env e preenche
+#   2. docker compose up -d
+#   3. Caddy obtém TLS automático no primeiro start (~30s)
+#
+# Logs:
+#   docker compose logs -f janus       # Janus core + plugins
+#   docker compose logs -f coturn      # STUN/TURN
+#   docker compose logs -f caddy       # TLS proxy
+#   docker compose logs -f recorder-watcher
+#
+# Health:
+#   curl https://media.closerfy.ai/janus/info  -H "X-Admin-Token: $JANUS_ADMIN_SECRET"
+
+services:
+  # ─── Janus WebRTC Gateway ──────────────────────────────────────────
+  # Recebe SDP da Meta, abre peer connection, grava áudio em .mjr files.
+  # Usa network_mode: host porque WebRTC precisa de portas RTP dinâmicas.
+  janus:
+    image: canyan/janus-gateway:1.2.4
+    container_name: closerfy-janus
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./janus-config:/usr/local/etc/janus:ro
+      - janus_recordings:/var/lib/janus/recordings
+    environment:
+      - JANUS_ADMIN_SECRET=${JANUS_ADMIN_SECRET}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8088/janus/info"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── Coturn (STUN/TURN) ────────────────────────────────────────────
+  # Atravessa NAT/firewall pra estabelecer media path entre Meta e Janus.
+  coturn:
+    image: coturn/coturn:4.6
+    container_name: closerfy-coturn
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-n", "-c", "/etc/coturn/turnserver.conf"]
+
+  # ─── Caddy (TLS reverse proxy) ─────────────────────────────────────
+  # Termina HTTPS do mundo externo e proxy pro Janus/admin internamente.
+  # Let's Encrypt automático no first boot.
+  caddy:
+    image: caddy:2-alpine
+    container_name: closerfy-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - MEDIA_HOSTNAME=${MEDIA_HOSTNAME}
+
+  # ─── Recorder Watcher ──────────────────────────────────────────────
+  # Vigia janus_recordings/, detecta .mjr finalizado, converte pra .ogg
+  # e POSTa pro backend Closerfy em api.closerfy.ai.
+  recorder-watcher:
+    build: ./recorder-watcher
+    container_name: closerfy-recorder-watcher
+    restart: unless-stopped
+    volumes:
+      - janus_recordings:/recordings:ro
+    environment:
+      - CLOSERFY_BACKEND_URL=${CLOSERFY_BACKEND_URL}
+      - CLOSERFY_INGEST_TOKEN=${CLOSERFY_INGEST_TOKEN}
+      - RECORDINGS_DIR=/recordings
+    depends_on:
+      - janus
+
+volumes:
+  janus_recordings:
+    name: closerfy_janus_recordings
+  caddy_data:
+    name: closerfy_caddy_data
+  caddy_config:
+    name: closerfy_caddy_config

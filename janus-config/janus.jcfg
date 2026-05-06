@@ -1,0 +1,64 @@
+general: {
+	configs_folder = "/usr/local/etc/janus"
+	plugins_folder = "/usr/local/lib/janus/plugins"
+	transports_folder = "/usr/local/lib/janus/transports"
+	events_folder = "/usr/local/lib/janus/events"
+	loggers_folder = "/usr/local/lib/janus/loggers"
+
+	debug_level = 4
+	admin_secret = "REPLACE_WITH_JANUS_ADMIN_SECRET_FROM_ENV"
+
+	# Recordings: cada call cria <prefix>-<timestamp>.mjr
+	recordings_dir = "/var/lib/janus/recordings"
+}
+
+certificates: {
+	# Janus não termina TLS direto — Caddy faz isso. Mas ainda precisa de
+	# DTLS pra WebRTC (peer-to-peer com Meta). Cert self-signed serve.
+	cert_pem = "/usr/local/etc/janus/janus.pem"
+	cert_key = "/usr/local/etc/janus/janus.key"
+}
+
+media: {
+	# Range de portas RTP — abre na VPS firewall (UDP 20000-40000).
+	rtp_port_range = "20000-40000"
+
+	# IPs públicos pra advertise nas candidatas ICE.
+	# Janus pega automático se rodar em network_mode: host com IP público.
+	# nat_1_1_mapping = "PUBLIC_IP_HERE"
+
+	ipv6 = false
+}
+
+nat: {
+	stun_server = "stun.l.google.com"
+	stun_port = 19302
+
+	# Coturn local atuando como TURN
+	turn_server = "127.0.0.1"
+	turn_port = 3478
+	turn_type = "udp"
+	turn_rest_api_key = "REPLACE_WITH_COTURN_SHARED_SECRET"
+
+	# ICE: trickle pra menor latência
+	ice_lite = false
+	ice_tcp = true
+}
+
+plugins: {
+	# Carrega só os necessários — desliga o que não usa pra reduzir attack surface
+	disable = "libjanus_videoroom.so,libjanus_streaming.so,libjanus_textroom.so,libjanus_voicemail.so,libjanus_audiobridge.so,libjanus_lua.so,libjanus_duktape.so,libjanus_videocall.so,libjanus_echotest.so,libjanus_sip.so,libjanus_nosip.so"
+}
+
+transports: {
+	# Habilita REST + WebSocket admin
+	disable = "libjanus_rabbitmq.so,libjanus_mqtt.so,libjanus_pfunix.so,libjanus_nanomsg.so"
+}
+
+loggers: {
+	# Stdout default — Docker compose logs captura
+}
+
+events: {
+	broadcast = false
+}
