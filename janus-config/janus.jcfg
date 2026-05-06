@@ -52,7 +52,12 @@ nat: {
 
 plugins: {
 	# Carrega só os necessários — desliga o que não usa pra reduzir attack surface
-	disable = "libjanus_videoroom.so,libjanus_streaming.so,libjanus_textroom.so,libjanus_voicemail.so,libjanus_audiobridge.so,libjanus_lua.so,libjanus_duktape.so,libjanus_videocall.so,libjanus_echotest.so,libjanus_sip.so,libjanus_nosip.so"
+	# nosip: habilitado — esse é o plugin que usamos pra Calling API da Meta
+	#   (não-SIP, só processa SDP + ICE + grava no recordplay).
+	# echotest: habilitado pra debug — útil em spike pra confirmar Janus
+	#   funciona mesmo sem Meta envolvida.
+	# Resto desabilitado pra reduzir attack surface.
+	disable = "libjanus_videoroom.so,libjanus_streaming.so,libjanus_textroom.so,libjanus_voicemail.so,libjanus_audiobridge.so,libjanus_lua.so,libjanus_duktape.so,libjanus_videocall.so,libjanus_sip.so"
 }
 
 transports: {
