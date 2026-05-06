@@ -23,18 +23,21 @@ media: {
 	# Range de portas RTP — abre na VPS firewall (UDP 20000-40000).
 	rtp_port_range = "20000-40000"
 
-	# IPv4 público pra advertise nas candidatas ICE. Necessário porque
-	# Janus em dual-stack pode pegar IPv6 automaticamente, e Meta espera
-	# IPv4 nas candidatas. Setup.sh substitui REPLACE_WITH_PUBLIC_IP pelo
-	# IPv4 real do .env.
-	nat_1_1_mapping = "REPLACE_WITH_PUBLIC_IP"
-
 	ipv6 = false
 }
 
 nat: {
 	stun_server = "stun.l.google.com"
 	stun_port = 19302
+
+	# IPv4 público pra advertise nas candidatas ICE. Necessário porque
+	# Janus em dual-stack pode pegar IPv6 automaticamente, e Meta espera
+	# IPv4 nas candidatas. Setup.sh substitui REPLACE_WITH_PUBLIC_IP pelo
+	# IPv4 real do .env.
+	# IMPORTANTE: pertence à seção `nat:`, não `media:` (Janus ignora
+	# silenciosamente se estiver na seção errada).
+	nat_1_1_mapping = "REPLACE_WITH_PUBLIC_IP"
+	keep_private_host = false
 
 	# Coturn local atuando como TURN
 	turn_server = "127.0.0.1"
