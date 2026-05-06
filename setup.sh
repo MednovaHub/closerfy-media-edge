@@ -236,20 +236,34 @@ echo "  Health:     https://$MEDIA_HOSTNAME/health"
 echo "  Janus info: https://$MEDIA_HOSTNAME/janus/info"
 echo "  Asterisk ARI: https://$MEDIA_HOSTNAME/ari/asterisk/info (Basic Auth)"
 echo ""
-echo -e "${BOLD}${YELLOW}ANOTA estes secrets — ponha no Portainer do backend Closerfy:${NC}"
-echo "  JANUS_ADMIN_SECRET=$JANUS_ADMIN_SECRET"
-echo "  CLOSERFY_INGEST_TOKEN=$CLOSERFY_INGEST_TOKEN"
-echo "  ASTERISK_ARI_USER=$ASTERISK_ARI_USER"
-echo "  ASTERISK_ARI_PASSWORD=$ASTERISK_ARI_PASSWORD"
+# Grava secrets em arquivo gitignored chmod 600 — NÃO printa em stdout
+# pra evitar vazamento por copy-paste (pra logs, chats, screenshots, etc).
+SECRETS_FILE=".secrets-output.txt"
+cat > "$SECRETS_FILE" <<EOF
+# Secrets gerados em $(date -Iseconds)
+# Cole estes valores no Portainer (env do backend closerfy-backend) e apague esse arquivo.
+
+# Janus (legacy — manter enquanto Janus estiver rodando)
+JANUS_ADMIN_URL=https://$MEDIA_HOSTNAME/admin
+JANUS_ADMIN_SECRET=$JANUS_ADMIN_SECRET
+
+# Recorder-watcher → Closerfy backend
+CLOSERFY_INGEST_TOKEN=$CLOSERFY_INGEST_TOKEN
+
+# Asterisk ARI (browser-direct + multi-party futuro)
+ASTERISK_ARI_URL=https://$MEDIA_HOSTNAME/ari
+ASTERISK_ARI_USER=$ASTERISK_ARI_USER
+ASTERISK_ARI_PASSWORD=$ASTERISK_ARI_PASSWORD
+ASTERISK_WS_URL=wss://$MEDIA_HOSTNAME/ws
+EOF
+chmod 600 "$SECRETS_FILE"
+
+echo -e "${BOLD}${YELLOW}Secrets gerados em ${GREEN}$SECRETS_FILE${YELLOW} (chmod 600).${NC}"
+echo "  Cola os valores no Portainer (env do backend) e apaga depois com:"
+echo "    rm $SECRETS_FILE"
 echo ""
-echo -e "${BOLD}Próximos passos no Closerfy backend (Portainer → env do serviço):${NC}"
-echo "  JANUS_ADMIN_URL=https://$MEDIA_HOSTNAME/admin"
-echo "  JANUS_ADMIN_SECRET=<o valor acima>"
-echo "  CLOSERFY_INGEST_TOKEN=<o valor acima>"
-echo "  ASTERISK_ARI_URL=https://$MEDIA_HOSTNAME/ari"
-echo "  ASTERISK_ARI_USER=closerfy"
-echo "  ASTERISK_ARI_PASSWORD=<o valor acima>"
-echo "  ASTERISK_WS_URL=wss://$MEDIA_HOSTNAME/ws"
+echo -e "${BOLD}Comando pra ver os secrets:${NC}"
+echo "  cat $SECRETS_FILE"
 echo ""
 echo "Depois redeploy o backend e teste uma call em /dashboard/whatsapp"
 echo ""

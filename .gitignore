@@ -1,3 +1,4 @@
 .env
 *.log
 asterisk-keys/
+.secrets-output.txt
