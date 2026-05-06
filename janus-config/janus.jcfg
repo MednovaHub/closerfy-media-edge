@@ -23,9 +23,11 @@ media: {
 	# Range de portas RTP — abre na VPS firewall (UDP 20000-40000).
 	rtp_port_range = "20000-40000"
 
-	# IPs públicos pra advertise nas candidatas ICE.
-	# Janus pega automático se rodar em network_mode: host com IP público.
-	# nat_1_1_mapping = "PUBLIC_IP_HERE"
+	# IPv4 público pra advertise nas candidatas ICE. Necessário porque
+	# Janus em dual-stack pode pegar IPv6 automaticamente, e Meta espera
+	# IPv4 nas candidatas. Setup.sh substitui REPLACE_WITH_PUBLIC_IP pelo
+	# IPv4 real do .env.
+	nat_1_1_mapping = "REPLACE_WITH_PUBLIC_IP"
 
 	ipv6 = false
 }

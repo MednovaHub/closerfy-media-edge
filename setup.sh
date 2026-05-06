@@ -129,6 +129,7 @@ ok "PUBLIC_IP IPv4: $PUBLIC_IP"
 step "Aplicando secrets nos configs"
 sed -i "s|REPLACE_WITH_JANUS_ADMIN_SECRET_FROM_ENV|$JANUS_ADMIN_SECRET|g" janus-config/janus.jcfg
 sed -i "s|REPLACE_WITH_COTURN_SHARED_SECRET|$COTURN_SHARED_SECRET|g" janus-config/janus.jcfg coturn.conf
+sed -i "s|REPLACE_WITH_PUBLIC_IP|$PUBLIC_IP|g" janus-config/janus.jcfg
 sed -i "s|<PUBLIC_IP>|$PUBLIC_IP|g" coturn.conf
 
 # Validação: não pode sobrar placeholder
