@@ -179,7 +179,10 @@ if [[ ! -f asterisk-keys/asterisk.crt ]]; then
     -out asterisk-keys/asterisk.crt \
     -days 3650 -nodes \
     -subj "/CN=$MEDIA_HOSTNAME" >/dev/null 2>&1
-  chmod 600 asterisk-keys/asterisk.key
+  # 644 (não 600) porque container roda como user 'asterisk' (não root) e
+  # precisa ler. Self-signed key não é sensitive — Meta valida fingerprint
+  # no SDP, não a CA, e o key fica em volume privado da VPS.
+  chmod 644 asterisk-keys/asterisk.key
   chmod 644 asterisk-keys/asterisk.crt
   ok "Cert Asterisk auto-assinado gerado (válido 10 anos)"
 else
