@@ -20,7 +20,7 @@ services:
   # Recebe SDP da Meta, abre peer connection, grava áudio em .mjr files.
   # Usa network_mode: host porque WebRTC precisa de portas RTP dinâmicas.
   janus:
-    image: canyan/janus-gateway:1.2.4
+    image: canyan/janus-gateway:master
     container_name: closerfy-janus
     restart: unless-stopped
     network_mode: host

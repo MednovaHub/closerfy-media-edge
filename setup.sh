@@ -72,11 +72,38 @@ ok "$(docker --version)"
 ok "$(docker compose version | head -1)"
 
 # ─── 4. Gerar / preservar secrets em .env ─────────────────────────────
+# Detecta IPv4 público de forma robusta — força IPv4 (-4 no curl) pra evitar
+# resolver pra IPv6 quando o servidor tem dual-stack.
+detect_ipv4() {
+  local ip
+  ip=$(curl -4 -fsS --max-time 5 ifconfig.me 2>/dev/null || true)
+  if [[ -z "$ip" ]]; then
+    ip=$(curl -4 -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)
+  fi
+  if [[ -z "$ip" ]]; then
+    # Fallback: pega da interface de rede principal
+    ip=$(hostname -I | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  fi
+  echo "$ip"
+}
+
 step "Configurando .env"
+EXISTING_IP=""
 if [[ -f .env ]]; then
-  warn ".env já existe — preservando secrets antigos"
+  EXISTING_IP=$(grep '^PUBLIC_IP=' .env | cut -d= -f2- | tr -d '"' || true)
+  # Detecta IP errado (vazio, IPv6 com ':', ou claramente inválido)
+  if [[ -z "$EXISTING_IP" ]] || [[ "$EXISTING_IP" == *:* ]] || ! [[ "$EXISTING_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    warn ".env existente com PUBLIC_IP inválido ('$EXISTING_IP') — corrigindo"
+    NEW_IP=$(detect_ipv4)
+    [[ -n "$NEW_IP" ]] || fail "Não consegui detectar IPv4 público. Edita .env manualmente."
+    sed -i "s|^PUBLIC_IP=.*|PUBLIC_IP=$NEW_IP|" .env
+    ok ".env corrigido com IPv4: $NEW_IP"
+  else
+    warn ".env já existe — preservando secrets antigos (PUBLIC_IP=$EXISTING_IP)"
+  fi
 else
-  PUBLIC_IP=$(curl -fsS ifconfig.me 2>/dev/null || echo "")
+  PUBLIC_IP=$(detect_ipv4)
+  [[ -n "$PUBLIC_IP" ]] || fail "Não consegui detectar IPv4 público. Defina PUBLIC_IP=... antes de rodar."
   cat > .env <<EOF
 MEDIA_HOSTNAME=$MEDIA_HOSTNAME
 JANUS_ADMIN_SECRET=$(openssl rand -hex 32)
@@ -86,16 +113,17 @@ CLOSERFY_INGEST_TOKEN=$(openssl rand -hex 32)
 PUBLIC_IP=$PUBLIC_IP
 EOF
   chmod 600 .env
-  ok "Secrets gerados em .env (chmod 600)"
+  ok "Secrets gerados em .env (chmod 600, PUBLIC_IP=$PUBLIC_IP)"
 fi
 
 # Carrega vars
 set -a; source .env; set +a
 
 [[ -n "${PUBLIC_IP:-}" ]] || fail "PUBLIC_IP vazio em .env — edita manualmente e rode de novo"
+[[ "${PUBLIC_IP}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "PUBLIC_IP em .env não é IPv4 válido: $PUBLIC_IP"
 [[ -n "${JANUS_ADMIN_SECRET:-}" ]] || fail "JANUS_ADMIN_SECRET vazio em .env"
 
-ok "PUBLIC_IP: $PUBLIC_IP"
+ok "PUBLIC_IP IPv4: $PUBLIC_IP"
 
 # ─── 5. Substituir placeholders nos configs ───────────────────────────
 step "Aplicando secrets nos configs"
