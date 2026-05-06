@@ -25,15 +25,16 @@ services:
     restart: unless-stopped
     network_mode: host
     volumes:
-      - ./janus-config:/usr/local/etc/janus:ro
+      - ./janus-config:/usr/local/etc/janus
       - janus_recordings:/var/lib/janus/recordings
     environment:
       - JANUS_ADMIN_SECRET=${JANUS_ADMIN_SECRET}
     healthcheck:
-      test: ["CMD", "curl", "-f", "-s", "http://localhost:8088/janus/info"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8088/janus/info || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s
 
   # ─── Coturn (STUN/TURN) ────────────────────────────────────────────
   # Atravessa NAT/firewall pra estabelecer media path entre Meta e Janus.
@@ -53,10 +54,12 @@ services:
     image: caddy:2-alpine
     container_name: closerfy-caddy
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"  # HTTP/3
+    # network_mode: host pra Caddy poder fazer reverse_proxy pra Janus
+    # (que também está em network_mode: host) via 127.0.0.1.
+    # Em rede bridge default, o 127.0.0.1 do Caddy seria o próprio container,
+    # não o host — proxy não conectaria. Portas 80/443 já são bind defaults
+    # do Caddy quando em host mode (UFW já libera).
+    network_mode: host
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
