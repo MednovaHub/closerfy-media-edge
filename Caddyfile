@@ -4,16 +4,17 @@
 
 {$MEDIA_HOSTNAME} {
 	# Janus REST API (sessions, plugins, ICE handling)
-	# Backend Closerfy bate aqui pra createSession/destroySession.
-	handle_path /janus* {
-		reverse_proxy http://127.0.0.1:8088
+	# Usa `handle` (não `handle_path`) pra PRESERVAR o /janus prefix —
+	# o Janus espera receber /janus/info, /janus/<sessionId>, etc.
+	# handle_path removia o prefix e Janus respondia 404.
+	handle /janus* {
+		reverse_proxy 127.0.0.1:8088
 	}
 
 	# Admin API (stop recording, get info)
-	# IMPORTANTE: protegido por admin_secret no janus.jcfg.
-	# Se quiser camada extra, adicionar basicauth aqui.
-	handle_path /admin* {
-		reverse_proxy http://127.0.0.1:7088
+	# Protegido por admin_secret no janus.jcfg + admin_acl=127.0.0.1.
+	handle /admin* {
+		reverse_proxy 127.0.0.1:7088
 	}
 
 	# Health endpoint pro UptimeRobot ou similar

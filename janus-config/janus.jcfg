@@ -52,7 +52,7 @@ plugins: {
 
 transports: {
 	# Habilita REST + WebSocket admin
-	disable = "libjanus_rabbitmq.so,libjanus_mqtt.so,libjanus_pfunix.so,libjanus_nanomsg.so"
+	disable = "libjanus_rabbitmq.so,libjanus_mqtt.so,libjanus_pfunix.so,libjanus_nanomsg.so,libjanus_websockets.so"
 }
 
 loggers: {

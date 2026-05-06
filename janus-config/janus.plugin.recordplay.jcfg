@@ -1,0 +1,11 @@
+general: {
+	# Diretório onde Janus salva os arquivos .mjr das gravações.
+	# O recorder-watcher vigia esse mesmo dir (montado como volume) pra
+	# detectar arquivos finalizados, converter pra .ogg via ffmpeg e
+	# postar no backend Closerfy.
+	path = "/var/lib/janus/recordings"
+
+	# Eventos broadcast: desligado pra reduzir overhead — não usamos
+	# event_handlers nesta deploy.
+	events = false
+}
